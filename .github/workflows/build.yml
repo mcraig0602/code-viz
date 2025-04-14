@@ -1,0 +1,37 @@
+name: Build and Deploy
+on:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install Go dependencies
+        run: go mod download
+      - name: Clone codebase
+        run: git clone https://github.com/your-org/js-codebase.git /codebase
+        env:
+          CODEBASE_TOKEN: ${{ secrets.CODEBASE_TOKEN }}
+      - name: Run parser
+        run: go run cmd/parser/main.go --repo /codebase --output data
+      - name: Install React dependencies
+        run: cd web && npm install
+      - name: Build React app
+        run: cd web && npm run build
+      - name: Move build to web/
+        run: mv web/build/* web/
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: web/
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v2
