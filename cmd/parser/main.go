@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dop251/goja"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"go.uber.org/zap"
@@ -39,9 +38,8 @@ type Graph struct {
 	Edges     []Edge `json:"edges"`
 }
 
-// parseFile extracts dependencies for a JS/TS file
 func parseFile(path string, baseDir string, nodes chan<- Node, edges chan<- Edge, logger *zap.Logger, wg *sync.WaitGroup) {
-	defer wg.Done() // Ensure Done is called for all exit paths
+	defer wg.Done()
 
 	// Only process JS/TS files
 	ext := strings.ToLower(filepath.Ext(path))
@@ -55,9 +53,7 @@ func parseFile(path string, baseDir string, nodes chan<- Node, edges chan<- Edge
 		logger.Warn("Failed to get relative path", zap.String("path", path), zap.Error(err))
 		return
 	}
-
-	// Send node
-	nodes <- Node{ID: relPath, Language: ext[1:]} // e.g., "js" or "ts"
+	nodes <- Node{ID: relPath, Language: ext[1:]}
 
 	// Read file
 	content, err := os.ReadFile(path)
@@ -65,45 +61,53 @@ func parseFile(path string, baseDir string, nodes chan<- Node, edges chan<- Edge
 		logger.Warn("Failed to read file", zap.String("path", path), zap.Error(err))
 		return
 	}
+	contentStr := string(content)
 
-	// Extract imports (ES modules) using regex
-	importRegex := `(?m)import\s+(?:[^'"]+\s+from\s+)?['"]([^'"]+)['"];?`
+	// ES modules: import, import type, dynamic import, export
+	importRegex := `(?m)^(?:import\s+(?:type\s+)?(?:[^'"\n;]*?\s+from\s+)?|export\s+(?:default\s+)?(?:type\s+)?[^'"\n;]*?\s*['"])([^'"\n]+)['"]|import\(['"]([^'"\n]+)['"]\)`
 	re := regexp.MustCompile(importRegex)
-	matches := re.FindAllStringSubmatch(string(content), -1)
+	matches := re.FindAllStringSubmatch(contentStr, -1)
 	for _, match := range matches {
-		if len(match) > 1 {
-			target := resolveImport(match[1], path, baseDir, logger)
+		module := match[1]
+		if module == "" {
+			module = match[2]
+		}
+		if module != "" {
+			target := resolveImport(module, path, baseDir, logger)
 			if target != "" {
 				edges <- Edge{Source: relPath, Target: target}
+				logger.Debug("Import found", zap.String("path", relPath), zap.String("module", module))
 			}
 		}
 	}
 
-	// Fallback for CommonJS (require)
-	vm := goja.New()
-	_, err = vm.RunString(string(content))
-	if err != nil {
-		logger.Debug("Skipping invalid JS", zap.String("path", path), zap.Error(err))
-		return
-	}
-	if require := vm.Get("require"); require != nil {
-		lines := strings.Split(string(content), "\n")
-		for _, line := range lines {
-			if strings.Contains(line, "require(") {
-				start := strings.Index(line, "('") + 2
-				end := strings.Index(line[start:], "')")
-				if start > 1 && end > 0 {
-					module := line[start : start+end]
-					target := resolveImport(module, path, baseDir, logger)
-					if target != "" {
-						edges <- Edge{Source: relPath, Target: target}
-					}
-				}
+	// CommonJS: require, module.exports, exports.foo, defineConfig
+	commonJSRegex := `(?m)require\(['"]([^'"\n]+)['"]\)|module\.exports\s*=\s*(?:defineConfig\s*\([\s\n]*\{|\{)[^'"\n]*['"]([^'"\n]+)['"][^'"\n;]*\}?\)?|exports\.[\w]+\s*=\\s*[^'"\n;]*['"]([^'"\n]+)['"]`
+	reCommonJS := regexp.MustCompile(commonJSRegex)
+	matches = reCommonJS.FindAllStringSubmatch(contentStr, -1)
+	for _, match := range matches {
+		module := match[1]
+		if module == "" {
+			module = match[2]
+		}
+		if module == "" {
+			module = match[3]
+		}
+		if module != "" {
+			target := resolveImport(module, path, baseDir, logger)
+			if target != "" {
+				edges <- Edge{Source: relPath, Target: target}
+				logger.Debug("CommonJS found", zap.String("path", relPath), zap.String("module", module))
 			}
 		}
 	}
 
-	logger.Debug("File processed", zap.String("path", relPath))
+	// Log results
+	if len(matches) == 0 {
+		logger.Debug("No dependencies found", zap.String("path", relPath))
+	} else {
+		logger.Debug("File processed", zap.String("path", relPath), zap.Int("matches", len(matches)))
+	}
 }
 
 var importCache = make(map[string]string)
@@ -151,7 +155,7 @@ func init() {
 
 func main() {
 	repoPath := flag.String("repo", ".", "Path to codebase repository")
-	outputDir := flag.String("output", "data", "Output directory for JSON files")
+	outputDir := flag.String("output", "web/public/data", "Output directory for JSON files")
 	level := flag.String("log-level", "info", "Log level (debug, info, warn, error)")
 	flag.Parse()
 
@@ -295,8 +299,10 @@ func main() {
 			graph.Nodes = append(graph.Nodes, node)
 		}
 		for _, edge := range edgeMap {
-			if _, exists := nodeMap[edge.Target]; exists {
-				graph.Edges = append(graph.Edges, edge)
+			if _, sourceExists := nodeMap[edge.Source]; sourceExists {
+				if _, targetExists := nodeMap[edge.Target]; targetExists {
+					graph.Edges = append(graph.Edges, edge)
+				}
 			}
 		}
 
@@ -323,7 +329,7 @@ func main() {
 		}
 
 		logger.Info("Saved graph", zap.String("file", outputFile))
-		generateCommitList(*outputDir, c.Hash.String())
+		generateCommitList(*outputDir, c.Hash.String(), logger)
 		return nil
 	})
 	if err != nil {
@@ -337,11 +343,11 @@ func main() {
 // generateCommitList updates commitList.json
 var commitListMutex sync.Mutex
 
-func generateCommitList(outputDir, commitHash string) {
+func generateCommitList(outputDir, commitHash string, logger *zap.Logger) {
 	commitListMutex.Lock()
 	defer commitListMutex.Unlock()
 
-	jsonFilePath := filepath.Join("web/public", "commitList.json")
+	jsonFilePath := filepath.Join(outputDir, "commitList.json")
 	var commitList []string
 
 	if jsonFile, err := os.Open(jsonFilePath); err == nil {
@@ -378,6 +384,5 @@ func generateCommitList(outputDir, commitHash string) {
 		return
 	}
 
-	logger, _ := zap.NewProduction()
 	logger.Info("Updated commitList.json", zap.String("commit", commitHash))
 }

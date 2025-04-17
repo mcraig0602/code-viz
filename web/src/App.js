@@ -12,7 +12,7 @@ function App() {
   // Fetch commit list (dynamic in GitHub Pages)
   useEffect(() => {
     // Read commit list from a static file
-    fetch('/commitList.json')
+    fetch('/data/commitList.json')
       .then(res => res.json())
       .then(data => {
         setCommits(data);
@@ -36,6 +36,7 @@ function App() {
             data: { source: edge.source, target: edge.target }
           }))
         ];
+        console.log("Elements:", elements); // Inspect the elements array
         setGraph(elements);
       })
       .catch(err => console.error('Error loading graph:', err));
@@ -59,7 +60,7 @@ function App() {
         <CytoscapeComponent
           elements={graph}
           style={{ width: '100%', height: '100%' }}
-          layout={{ name: 'cose' }}
+          layout={{ name: 'breadthfirst' }}
           stylesheet={[
             {
               selector: 'node',

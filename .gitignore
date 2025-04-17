@@ -8,6 +8,7 @@
 /data
 web/node_modules
 web/build
+web/public/data/*
 
 # Go dependencies
 /vendor
