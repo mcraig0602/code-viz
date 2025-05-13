@@ -7,13 +7,13 @@ on:
 permissions:
   issues: write
   contents: read
-
 jobs:
   bug_report:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        
       - name: Tag issue with "bug" label
         uses: actions/github-script@v6
         with:
@@ -24,6 +24,7 @@ jobs:
               repo: context.repo.repo,
               labels: ["bug"]
             })
+            
       - name: Get issue details
         id: issue_details
         run: |
@@ -73,3 +74,30 @@ jobs:
               repo: context.repo.repo,
               body: comment
             })
+            
+      # New step to add issue to project
+      - name: Add issue to project
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const query = `mutation($projectId: ID!, $contentId: ID!) {
+              addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+                item {
+                  id
+                }
+              }
+            }`;
+            
+            // Your GitHub Project ID (Projects v2)
+            const projectId = "PROJECTS_V2_3"; // This is the ID for project #3
+            
+            // Get the global ID of the issue
+            const issueId = context.payload.issue.node_id;
+            
+            await github.graphql(query, {
+              projectId: projectId,
+              contentId: issueId
+            });
+            
+            console.log(`Added issue #${context.issue.number} to project`);
