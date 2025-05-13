@@ -7,97 +7,33 @@ on:
 permissions:
   issues: write
   contents: read
+
 jobs:
-  bug_report:
+  add_issue_to_project:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-        
-      - name: Tag issue with "bug" label
-        uses: actions/github-script@v6
-        with:
-          script: |
-            github.rest.issues.addLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ["bug"]
-            })
-            
-      - name: Get issue details
-        id: issue_details
-        run: |
-          ISSUE_NUMBER="${{ github.event.issue.number }}"
-          ISSUE_TITLE="${{ github.event.issue.title }}"
-          ISSUE_AUTHOR="${{ github.event.issue.user.login }}"
-          
-          # Handle the case when there are no labels
-          LABELS_JSON='${{ toJSON(github.event.issue.labels) }}'
-          if [ "$LABELS_JSON" = "[]" ] || [ -z "$LABELS_JSON" ]; then
-            ISSUE_LABELS="No labels"
-          else
-            ISSUE_LABELS=$(echo $LABELS_JSON | jq -r '.[].name' | paste -sd "," -)
-          fi
-
-          echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
-          echo "issue_title=$ISSUE_TITLE" >> $GITHUB_OUTPUT
-          echo "issue_author=$ISSUE_AUTHOR" >> $GITHUB_OUTPUT
-          echo "issue_labels=$ISSUE_LABELS" >> $GITHUB_OUTPUT
-
-      - name: Add comment to issue
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const issue_number = "${{ steps.issue_details.outputs.issue_number }}";
-            const issue_title = "${{ steps.issue_details.outputs.issue_title }}";
-            const issue_author = "${{ steps.issue_details.outputs.issue_author }}";
-            const issue_labels = "${{ steps.issue_details.outputs.issue_labels }}";
-            
-            // Get issue body directly from the context
-            const issue_body = context.payload.issue.body;
-
-            const comment = `
-            ## Bug Report Summary
-            **Issue Number:** ${issue_number}
-            **Title:** ${issue_title}
-            **Author:** @${issue_author}
-            **Labels:** ${issue_labels}
-
-            ### Description
-            ${issue_body}
-            `;
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            })
-            
-      # New step to add issue to project
       - name: Add issue to project
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const query = `mutation($projectId: ID!, $contentId: ID!) {
-              addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
-                item {
-                  id
+            const query = `
+              mutation ($projectId: ID!, $contentId: ID!) {
+                addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+                  item { id }
                 }
               }
-            }`;
-            
-            // Your GitHub Project ID (Projects v2)
-            const projectId = "PROJECTS_V2_3"; // This is the ID for project #3
-            
+            `;
+
+            // Replace with your actual Project ID (v2)
+            const projectId = "3";
+
             // Get the global ID of the issue
             const issueId = context.payload.issue.node_id;
-            
+
             await github.graphql(query, {
               projectId: projectId,
               contentId: issueId
             });
-            
+
             console.log(`Added issue #${context.issue.number} to project`);
