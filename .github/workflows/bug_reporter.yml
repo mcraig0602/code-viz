@@ -29,12 +29,11 @@ jobs:
         run: |
           ISSUE_NUMBER="${{ github.event.issue.number }}"
           ISSUE_TITLE="${{ github.event.issue.title }}"
-          ISSUE_BODY="${{ github.event.issue.body }}"
           ISSUE_AUTHOR="${{ github.event.issue.user.login }}"
           
           # Handle the case when there are no labels
           LABELS_JSON='${{ toJSON(github.event.issue.labels) }}'
-          if [ "$LABELS_JSON" = "[]" ] || [ -z "$LABELS_JSON" ]; then
+          if [ "$LABELS_JSON" = "[]" || [ -z "$LABELS_JSON" ]; then
             ISSUE_LABELS="No labels"
           else
             ISSUE_LABELS=$(echo $LABELS_JSON | jq -r '.[].name' | paste -sd "," -)
@@ -42,15 +41,8 @@ jobs:
 
           echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
           echo "issue_title=$ISSUE_TITLE" >> $GITHUB_OUTPUT
-          echo "issue_body=$ISSUE_BODY" >> $GITHUB_OUTPUT
           echo "issue_author=$ISSUE_AUTHOR" >> $GITHUB_OUTPUT
           echo "issue_labels=$ISSUE_LABELS" >> $GITHUB_OUTPUT
-          # Remove these deprecated set-output commands
-          # echo "::set-output name=issue_number::$ISSUE_NUMBER"
-          # echo "::set-output name=issue_title::$ISSUE_TITLE"
-          # echo "::set-output name=issue_body::$ISSUE_BODY"
-          # echo "::set-output name=issue_author::$ISSUE_AUTHOR"
-          # echo "::set-output name=issue_labels::$ISSUE_LABELS"
 
       - name: Add comment to issue
         uses: actions/github-script@v6
@@ -58,9 +50,11 @@ jobs:
           script: |
             const issue_number = ${{ steps.issue_details.outputs.issue_number }}
             const issue_title = ${{ steps.issue_details.outputs.issue_title }}
-            const issue_body = ${{ steps.issue_details.outputs.issue_body }}
             const issue_author = ${{ steps.issue_details.outputs.issue_author }}
             const issue_labels = ${{ steps.issue_details.outputs.issue_labels }}
+            
+            // Get issue body directly from the context
+            const issue_body = context.payload.issue.body;
 
             const comment = `
             ## Bug Report Summary
