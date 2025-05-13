@@ -1,0 +1,69 @@
+name: Bug Report on Issue Creation
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  bug_report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Tag issue with "bug" label
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ["bug"]
+            })
+      - name: Get issue details
+        id: issue_details
+        run: |
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+          ISSUE_TITLE="${{ github.event.issue.title }}"
+          ISSUE_BODY="${{ github.event.issue.body }}"
+          ISSUE_AUTHOR="${{ github.event.issue.user.login }}"
+          ISSUE_LABELS=$(echo '${{ github.event.issue.labels }}' | jq -r '.[].name')
+
+          echo "issue_number=$ISSUE_NUMBER" > $GITHUB_OUTPUT
+          echo "issue_title=$ISSUE_TITLE" > $GITHUB_OUTPUT
+          echo "issue_body=$ISSUE_BODY" > $GITHUB_OUTPUT
+          echo "issue_author=$ISSUE_AUTHOR" > $GITHUB_OUTPUT
+          echo "issue_labels=$ISSUE_LABELS" > $GITHUB_OUTPUT
+          echo "::set-output name=issue_number::$ISSUE_NUMBER"
+          echo "::set-output name=issue_title::$ISSUE_TITLE"
+          echo "::set-output name=issue_body::$ISSUE_BODY"
+          echo "::set-output name=issue_author::$ISSUE_AUTHOR"
+          echo "::set-output name=issue_labels::$ISSUE_LABELS"
+
+      - name: Add comment to issue
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue_number = ${{ steps.issue_details.outputs.issue_number }}
+            const issue_title = ${{ steps.issue_details.outputs.issue_title }}
+            const issue_body = ${{ steps.issue_details.outputs.issue_body }}
+            const issue_author = ${{ steps.issue_details.outputs.issue_author }}
+            const issue_labels = ${{ steps.issue_details.outputs.issue_labels }}
+
+            const comment = `
+            ## Bug Report Summary
+            **Issue Number:** ${issue_number}
+            **Title:** ${issue_title}
+            **Author:** @${issue_author}
+            **Labels:** ${issue_labels}
+
+            ### Description
+            ${issue_body}
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            })
