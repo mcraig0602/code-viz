@@ -4,6 +4,10 @@ on:
   issues:
     types: [opened]
 
+permissions:
+  issues: write
+  contents: read
+
 jobs:
   bug_report:
     runs-on: ubuntu-latest
@@ -29,11 +33,11 @@ jobs:
           ISSUE_AUTHOR="${{ github.event.issue.user.login }}"
           ISSUE_LABELS=$(echo '${{ github.event.issue.labels }}' | jq -r '.[].name')
 
-          echo "issue_number=$ISSUE_NUMBER" > $GITHUB_OUTPUT
-          echo "issue_title=$ISSUE_TITLE" > $GITHUB_OUTPUT
-          echo "issue_body=$ISSUE_BODY" > $GITHUB_OUTPUT
-          echo "issue_author=$ISSUE_AUTHOR" > $GITHUB_OUTPUT
-          echo "issue_labels=$ISSUE_LABELS" > $GITHUB_OUTPUT
+          echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
+          echo "issue_title=$ISSUE_TITLE" >> $GITHUB_OUTPUT
+          echo "issue_body=$ISSUE_BODY" >> $GITHUB_OUTPUT
+          echo "issue_author=$ISSUE_AUTHOR" >> $GITHUB_OUTPUT
+          echo "issue_labels=$ISSUE_LABELS" >> $GITHUB_OUTPUT
           echo "::set-output name=issue_number::$ISSUE_NUMBER"
           echo "::set-output name=issue_title::$ISSUE_TITLE"
           echo "::set-output name=issue_body::$ISSUE_BODY"
