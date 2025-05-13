@@ -31,18 +31,26 @@ jobs:
           ISSUE_TITLE="${{ github.event.issue.title }}"
           ISSUE_BODY="${{ github.event.issue.body }}"
           ISSUE_AUTHOR="${{ github.event.issue.user.login }}"
-          ISSUE_LABELS=$(echo '${{ github.event.issue.labels }}' | jq -r '.[].name')
+          
+          # Handle the case when there are no labels
+          LABELS_JSON='${{ toJSON(github.event.issue.labels) }}'
+          if [ "$LABELS_JSON" = "[]" ] || [ -z "$LABELS_JSON" ]; then
+            ISSUE_LABELS="No labels"
+          else
+            ISSUE_LABELS=$(echo $LABELS_JSON | jq -r '.[].name' | paste -sd "," -)
+          fi
 
           echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
           echo "issue_title=$ISSUE_TITLE" >> $GITHUB_OUTPUT
           echo "issue_body=$ISSUE_BODY" >> $GITHUB_OUTPUT
           echo "issue_author=$ISSUE_AUTHOR" >> $GITHUB_OUTPUT
           echo "issue_labels=$ISSUE_LABELS" >> $GITHUB_OUTPUT
-          echo "::set-output name=issue_number::$ISSUE_NUMBER"
-          echo "::set-output name=issue_title::$ISSUE_TITLE"
-          echo "::set-output name=issue_body::$ISSUE_BODY"
-          echo "::set-output name=issue_author::$ISSUE_AUTHOR"
-          echo "::set-output name=issue_labels::$ISSUE_LABELS"
+          # Remove these deprecated set-output commands
+          # echo "::set-output name=issue_number::$ISSUE_NUMBER"
+          # echo "::set-output name=issue_title::$ISSUE_TITLE"
+          # echo "::set-output name=issue_body::$ISSUE_BODY"
+          # echo "::set-output name=issue_author::$ISSUE_AUTHOR"
+          # echo "::set-output name=issue_labels::$ISSUE_LABELS"
 
       - name: Add comment to issue
         uses: actions/github-script@v6
