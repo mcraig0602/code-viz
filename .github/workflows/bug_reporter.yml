@@ -33,7 +33,7 @@ jobs:
           
           # Handle the case when there are no labels
           LABELS_JSON='${{ toJSON(github.event.issue.labels) }}'
-          if [ "$LABELS_JSON" = "[]" || [ -z "$LABELS_JSON" ]; then
+          if [ "$LABELS_JSON" = "[]" ] || [ -z "$LABELS_JSON" ]; then
             ISSUE_LABELS="No labels"
           else
             ISSUE_LABELS=$(echo $LABELS_JSON | jq -r '.[].name' | paste -sd "," -)
@@ -48,10 +48,10 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const issue_number = ${{ steps.issue_details.outputs.issue_number }}
-            const issue_title = ${{ steps.issue_details.outputs.issue_title }}
-            const issue_author = ${{ steps.issue_details.outputs.issue_author }}
-            const issue_labels = ${{ steps.issue_details.outputs.issue_labels }}
+            const issue_number = "${{ steps.issue_details.outputs.issue_number }}";
+            const issue_title = "${{ steps.issue_details.outputs.issue_title }}";
+            const issue_author = "${{ steps.issue_details.outputs.issue_author }}";
+            const issue_labels = "${{ steps.issue_details.outputs.issue_labels }}";
             
             // Get issue body directly from the context
             const issue_body = context.payload.issue.body;
