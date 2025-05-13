@@ -26,7 +26,7 @@ jobs:
             `;
 
             // Replace with your actual Project ID (v2)
-            const projectId = "3";
+            const projectId = "PVT_kwHOANUy3c4A42jt";
 
             // Get the global ID of the issue
             const issueId = context.payload.issue.node_id;
