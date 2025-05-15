@@ -3,7 +3,7 @@ name: Bug report
 about: Create a report to help us improve
 title: ''
 labels: 'bug'
-projects: ['mcraig0602/2']
+projects: ['mcraig0602/3']
 assignees: ''
 
 ---
