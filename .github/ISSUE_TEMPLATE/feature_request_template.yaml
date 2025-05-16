@@ -81,3 +81,19 @@ body:
       placeholder: Paste image URLs or drag and drop screenshots.
     validations:
       required: false
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: What platform(s) does this feature request apply to?
+      multiple: true
+      options:
+        - web
+        - iOS
+        - android
+        - macOS
+        - Windows
+        - Other
+    validations:
+      required: false
