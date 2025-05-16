@@ -1,9 +1,8 @@
 ---
 name: Bug report
 about: Create a report to help us improve
-title: ''
+title: '[Bug]: '
 labels: ['bug']
-projects: ['PVT_kwHOANUy3c4A42jt']
 assignees: ''
 
 ---
